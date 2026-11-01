@@ -106,10 +106,14 @@ frames rather than being eyeballed:
 
 ### Add to cart (`AddToCartButton.tsx`)
 
-- A three-state machine: `idle → loading → success → idle`.
+- A four-state machine: `idle → loading → success → in-cart`.
 - The label slides up and out, a spinner fades in, then a checkmark **draws
   itself** (`pathLength` 0 → 1) next to the word "Added" while the fill moves to
-  green. It reverts after 1.5s.
+  green.
+- After the success window the CTA **does not revert** — it settles into
+  **"Go to Bag"** with an arrow that nudges right on hover, and the click
+  becomes a navigation rather than a mutation. Membership comes from the cart
+  store, so the state survives a re-render and is shared with the header count.
 - The button is `disabled` for the whole loading + success window, so a
   double-click cannot add the item twice.
 - Width never changes between states — the row below it never shifts.
@@ -132,6 +136,14 @@ frames rather than being eyeballed:
 - Dots: 6px circles, 16px pill for the active one, animated with a layout
   spring.
 - A live region announces "Image *n* of *m*" for screen readers.
+
+### In-stock pulse
+
+The green dot's ring animates `opacity: [0, 0.45, 0]`, starting **and ending at
+zero** with a 0.7s rest between cycles. Animating `[0.45 → 0]` instead is what
+produces a visible blink: at the top of every loop the value snaps back to full
+in a single frame. Measured per animation frame, the current curve peaks at
+0.45 with a largest frame-to-frame change of 0.014.
 
 ### Reduced motion
 
@@ -198,6 +210,11 @@ chip, the strike-through price and the stock dot are all derived.
 The four carousel entries are presented crops of one exported shot, since the
 Figma file carries a single image. Replace `images` with real alternate
 photography and the crops go away.
+
+`src/app/bag/page.tsx` is a placeholder so the "Go to Bag" CTA has a
+destination — point `bagHref` at your real bag route instead. The cart is held
+in `sessionStorage` so it survives a reload; swap that for your real cart
+service.
 
 `src/app/page.tsx` is a demo page only — replace it when you drop `ProductCard`
 into a real catalogue page. The card takes an optional `width` prop (defaults to

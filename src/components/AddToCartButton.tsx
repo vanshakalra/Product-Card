@@ -1,12 +1,16 @@
 'use client';
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 type Status = 'idle' | 'loading' | 'success';
 
 type Props = {
   onAdd: () => void;
+  /** True once this product is in the cart — the CTA then reads "Go to Bag". */
+  inCart: boolean;
+  bagHref?: string;
   disabled?: boolean;
   productName: string;
   /** Simulated round-trip. Swap for a real mutation in production. */
@@ -15,32 +19,57 @@ type Props = {
 
 export default function AddToCartButton({
   onAdd,
+  inCart,
+  bagHref = process.env.NEXT_PUBLIC_BAG_HREF || '/bag',
   disabled,
   productName,
   latencyMs = 620,
 }: Props) {
   const reduce = useReducedMotion();
+  const router = useRouter();
   const [status, setStatus] = useState<Status>('idle');
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   const handleClick = () => {
+    if (disabled) return;
+
+    // Already in the cart: this is now a navigation, not a mutation.
+    if (inCart && status === 'idle') {
+      // An absolute href is a normal client-side route. A relative one is used
+      // when the build is served from a sub-path rather than a domain root,
+      // where an absolute push would escape the deployment.
+      if (bagHref.startsWith('/')) router.push(bagHref);
+      else window.location.assign(bagHref);
+      return;
+    }
+
     // Guard: the button is busy for the whole loading→success window, so a
     // double-click can never post the item twice.
-    if (status !== 'idle' || disabled) return;
+    if (status !== 'idle') return;
 
     setStatus('loading');
     timers.current.push(
       setTimeout(() => {
         setStatus('success');
         onAdd();
+        // Settles into the "Go to Bag" state rather than reverting.
         timers.current.push(setTimeout(() => setStatus('idle'), 1500));
       }, latencyMs),
     );
   };
 
   const busy = status !== 'idle';
+  const showBag = inCart && status === 'idle';
+
+  const label = disabled
+    ? `${productName} is out of stock`
+    : showBag
+      ? `Go to bag — ${productName} is in your bag`
+      : status === 'success'
+        ? `${productName} added to cart`
+        : `Add ${productName} to cart`;
 
   return (
     <motion.button
@@ -48,13 +77,7 @@ export default function AddToCartButton({
       onClick={handleClick}
       disabled={disabled || busy}
       aria-live="polite"
-      aria-label={
-        disabled
-          ? `${productName} is out of stock`
-          : status === 'success'
-            ? `${productName} added to cart`
-            : `Add ${productName} to cart`
-      }
+      aria-label={label}
       className={[
         'focus-ring relative h-12 w-full overflow-hidden rounded-pill text-[13px] font-semibold text-white @[360px]:h-11 @[360px]:text-[14px]',
         'transition-[background-color,box-shadow] duration-300 ease-settle',
@@ -67,7 +90,6 @@ export default function AddToCartButton({
       whileTap={reduce || disabled || busy ? undefined : { scale: 0.975 }}
       transition={{ type: 'spring', stiffness: 600, damping: 26 }}
     >
-      {/* sheen sweep on hover — pure decoration, skipped when disabled */}
       {!disabled && status === 'idle' && (
         <span
           aria-hidden="true"
@@ -77,7 +99,7 @@ export default function AddToCartButton({
 
       <span className="grid h-full w-full place-items-center">
         <AnimatePresence mode="popLayout" initial={false}>
-          {status === 'idle' && (
+          {status === 'idle' && !showBag && (
             <motion.span
               key="label"
               className="col-start-1 row-start-1 flex items-center gap-2"
@@ -125,6 +147,35 @@ export default function AddToCartButton({
                 />
               </svg>
               Added
+            </motion.span>
+          )}
+
+          {showBag && (
+            <motion.span
+              key="bag"
+              className="col-start-1 row-start-1 flex items-center gap-[7px]"
+              initial={reduce ? false : { y: 18, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { y: -18, opacity: 0 }}
+              transition={{ duration: 0.26, ease: 'easeOut' }}
+            >
+              Go to Bag
+              <motion.svg
+                width="15"
+                height="15"
+                viewBox="0 0 15 15"
+                fill="none"
+                aria-hidden="true"
+                className="transition-transform duration-300 ease-settle group-hover/card:translate-x-[3px]"
+              >
+                <path
+                  d="M3 7.5h8.5M8 4l3.5 3.5L8 11"
+                  stroke="white"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </motion.svg>
             </motion.span>
           )}
         </AnimatePresence>

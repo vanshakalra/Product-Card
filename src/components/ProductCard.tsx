@@ -16,7 +16,7 @@ export default function ProductCard({
   width?: number;
 }) {
   const reduce = useReducedMotion();
-  const { wishlist, toggleWishlist, addToCart } = useCart();
+  const { wishlist, items, toggleWishlist, addToCart } = useCart();
   const saved = wishlist.has(product.id);
   const off = discountPercent(product.priceWas, product.priceNow);
   const fullName = `${product.brand} ${product.name}`;
@@ -50,8 +50,19 @@ export default function ProductCard({
               {product.inStock && !reduce && (
                 <motion.span
                   className="absolute inset-0 rounded-full bg-stock"
-                  animate={{ scale: [1, 2.4], opacity: [0.55, 0] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeOut' }}
+                  /*
+                   * Opacity starts AND ends at 0, so the loop restart is
+                   * invisible. Animating [0.55 -> 0] snaps back to 0.55 at the
+                   * top of every cycle, which is the blink.
+                   */
+                  animate={{ scale: [1, 1.9, 2.8], opacity: [0, 0.45, 0] }}
+                  transition={{
+                    duration: 2.2,
+                    times: [0, 0.4, 1],
+                    repeat: Infinity,
+                    repeatDelay: 0.7,
+                    ease: 'easeOut',
+                  }}
                 />
               )}
             </span>
@@ -94,10 +105,11 @@ export default function ProductCard({
         {/* Actions */}
         <div className="flex items-center gap-[8px] px-0 pt-[19px] @[360px]:pt-[24px]">
           <AddToCartButton
-            productName={fullName}
-            disabled={!product.inStock}
-            onAdd={() => addToCart(product.id)}
-          />
+              productName={fullName}
+              disabled={!product.inStock}
+              inCart={items.has(product.id)}
+              onAdd={() => addToCart(product.id)}
+            />
           <WishlistButton
             saved={saved}
             productName={fullName}
